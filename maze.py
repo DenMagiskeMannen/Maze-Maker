@@ -25,6 +25,7 @@ class Cell:
         self.lines=[]
         self.lineSize=0
         self.availablecells=[]
+        self.directionalallyAvailablecells=[None,None,None,None] #Up, right, down, left
         
         
     def connect(self,Other):
@@ -37,7 +38,7 @@ class Cell:
 
     def drawself(self):
         #pygame.draw.circle(screen,"Dark Green",self.pos,5)
-        brehet=2
+        brehet=3
         for line in self.lines:
             #print(line[1])
             
@@ -53,6 +54,11 @@ class Cell:
                 End=(xMiddle,yMiddle+self.lineSize)
                 pygame.draw.line(screen,"black",Start,End,width=brehet)
         #print(self.pos)
+    def drawplayer(self):
+        pygame.draw.circle(screen,(3,201,250),self.pos,4.5)
+    def drawGoal(self):
+        pygame.draw.circle(screen,(255,153,255),self.pos,4.5)
+        
         
     def discoverWalls(self):
         shortestest=[]
@@ -97,13 +103,14 @@ class Cell:
                 leftovers[0]-=DistanceX
                 leftovers[1]-=DistanceY
                 self.availablecells.append(each)
+
         #print(leftovers)
         if leftovers[0] > 1 or leftovers[0] < -1:
             self.lines.append(((self.pos[0]+leftovers[0],self.pos[1]),"h",None))
         if leftovers[1] > 1 or leftovers[1] < -1:
             self.lines.append(((self.pos[0],self.pos[1]+leftovers[1]),"v",None))
         self.lineSize=rubrik
-
+    
     
     def checkWalls(self):
         #print("checkin")
@@ -117,7 +124,29 @@ class Cell:
                     if conec == each[2]:
                         self.lines.remove(each)
                         #print("popped")
+    
+    def discoverDirections(self):
+        for each in self.connections:
+            x=self.pos[0]
+            y=self.pos[1]
+            Ydif=each.pos[1]-y
+            Xdif=each.pos[0]-x
+            #self.directionalallyAvailablecells=[None,None,None,None] #Up, right, down, left
+            if Ydif == 0:
+                if Xdif > 0:
+                    self.directionalallyAvailablecells[1]=each
+                elif Xdif < 0:
+                    self.directionalallyAvailablecells[3]=each
+            elif Xdif == 0:
+                if Ydif > 0:
+                    self.directionalallyAvailablecells[2]=each
+                elif Ydif < 0:
+                    self.directionalallyAvailablecells[0]=each
             
+            #print(Ydif)
+            #print(Xdif)
+            #print(each.pos, self.pos)
+    
 
 
 class Maze:
@@ -129,12 +158,20 @@ class Maze:
         self.cells=[]
         self.previousCells=[]
         self.openings=[]
+        self.player=None
+        self.traversedByplayer=[]
+        self.previousPlayerMove=None
+        
+        
         
         for y in range(yamount):
             for x in range(xamount):
                 #print(y,x)
                 quare=Cell(self,x*Xhop+Xhop/2+start[0],y*Yhop+Yhop/2+start[1])
                 self.cells.append(quare)
+                
+                
+        #int((length/1.5)**2)
         self.currentcell=self.cells[0]
     def drawPoints(self):
         for cell in Cell.cells:
@@ -145,10 +182,40 @@ class Maze:
         for cell in Cell.cells:
             if cell.owner == self:
                 cell.checkWalls()
-        
+                #cell.discoverDirections()
+    
+    def drawThelines(self):
+        #for line in self.traversedByplayer:
+            #pygame.draw.line(screen,"red",line.pos,self.player.pos)
+        for i in range(len(self.traversedByplayer)-1):
+            #print(i)
+            pygame.draw.line(screen,(91,217,249),self.traversedByplayer[i].pos,self.traversedByplayer[i+1].pos,2)
+            #print(len(self.traversedByplayer)-1)
+    
+    def traversed(self):
+        if self.traversedByplayer.count(self.player) > 1:
+            self.traversedByplayer.pop(-2)
+        """
+        for each in self.traversedByplayer:
+            if self.traversedByplayer.count(each) > 1:
+                for each2 in self.traversedByplayer:
+                    if each == each2:
+                        self.traversedByplayer.remove(each)
+                #traversedByplayer.remo
+        """
+    
     def update(self):
         self.drawPoints()
         self.sustainWalls()
+        self.drawThelines()
+        if self.player != None:
+            self.traversed()
+            self.player.drawplayer()
+            self.goal.drawGoal()
+            self.player.discoverDirections()
+            
+            
+            #pass
     
     def progress(self):
         #print(len(self.currentcell.availablecells))
@@ -163,13 +230,17 @@ class Maze:
                 self.previousCells.append(self.currentcell)
                 self.currentcell.connect(choice)
                 self.currentcell = choice
+               
+                
         else:
+            #reversed(self.previousCells)
             for cell in reversed(self.previousCells):
                 #print(cell)
                 for each in cell.availablecells:
                     if len(each.connections) == 0:
                         self.currentcell = cell
                         break
+        #print(len(self.previousCells),len(self.cells))
                     
     def makeOpenings(self):
         print(len(self.openings))
@@ -193,7 +264,25 @@ class Maze:
                     self.openings.append((line,cell))
                     cell.lines.remove(line)
         #print(start)
-        print("")      
+        self.player = random.choice(self.openings)[1]
+        self.traversedByplayer=[self.player]
+        for each in self.openings:
+            if each[1]!=self.player:
+                self.goal= each[1]
+        print(self.goal)    
+        
+    def solveMaze(self):
+        path=[self.player]
+        while len(self.player.connections) > 1:
+            choice= random.choice(self.player.directionalallyAvailablecells)
+            if choice != None and choice not in path:
+                self.player=choice
+                path.append(self.player)
+                print(path)
+          #self.previousPlayerMove=None  
+        self.traversedByplayer.append(self.player)
+                
+        
         
 pygame.init()
 
@@ -203,8 +292,8 @@ screen = pygame.display.set_mode(screenie)
 clock = pygame.time.Clock()
 running = True
 
-r=screenie[1]/2.1
-length=40
+r=screenie[1]/2.2
+length=35
 Thypany=Maze(length,length,(screenie[0]/2 - r, screenie[1]/2 - r),(screenie[0]/2 + r, screenie[1]/2 + r))
 #Cell.cells[1].discoverWalls()
 
@@ -224,23 +313,58 @@ while running:
                 pass
             elif event.button == 1: 
                 Thypany.progress()
-    
+                
+    if len(Thypany.previousCells)+1 != len(Thypany.cells):
+        Thypany.progress()
+        
     keys = pygame.key.get_pressed()
 
     if keys[pygame.K_SPACE]:
         Thypany.progress()
-    if keys[pygame.K_e]:
+        
+
+    if keys[pygame.K_y]:
         if time.time()-currentTime >0.3:
             Thypany.makeOpenings()
             currentTime=time.time()
-    if keys[pygame.K_r]:
+    if keys[pygame.K_l]:
+        
         if time.time()-currentTime >0.3:
-            Thypany.makeOpenings()
+            Thypany.solveMaze()
             currentTime=time.time()
-    if keys[pygame.K_w]:
-        if time.time()-currentTime >0.3:
-            pass
-            currentTime=time.time()
+            
+    try:
+        if keys[pygame.K_w]:
+            if time.time()-currentTime > 0.2:
+                if Thypany.player.directionalallyAvailablecells[0] != None:
+                    Thypany.player = Thypany.player.directionalallyAvailablecells[0]
+                    Thypany.traversedByplayer.append(Thypany.player)
+                currentTime=time.time()
+                
+        if keys[pygame.K_s]:
+            if time.time()-currentTime > 0.2:
+                if Thypany.player.directionalallyAvailablecells[2] != None:
+                    Thypany.player = Thypany.player.directionalallyAvailablecells[2]
+                    Thypany.traversedByplayer.append(Thypany.player)
+                currentTime=time.time()
+                
+        if keys[pygame.K_d]:
+            if time.time()-currentTime > 0.2:
+                if Thypany.player.directionalallyAvailablecells[1] != None:
+                    Thypany.player = Thypany.player.directionalallyAvailablecells[1]
+                    Thypany.traversedByplayer.append(Thypany.player)
+                currentTime=time.time()
+                
+        if keys[pygame.K_a]:
+            if time.time()-currentTime > 0.2:
+                if Thypany.player.directionalallyAvailablecells[3] != None:
+                    Thypany.player = Thypany.player.directionalallyAvailablecells[3]
+                    Thypany.traversedByplayer.append(Thypany.player)
+                currentTime=time.time()
+    except:
+        pass
+
+            
             
     
     
